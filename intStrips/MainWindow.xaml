@@ -1,0 +1,27 @@
+﻿<Window x:Class="intStrips.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:models="clr-namespace:intStrips.Models" 
+        xmlns:controls="clr-namespace:intStrips.Controls"
+        mc:Ignorable="d"
+        Title="MainWindow" Height="600" Width="600" MinWidth="600">
+    <Window.DataContext>
+        <models:MainWindowModel />
+    </Window.DataContext>
+    <Grid Background="#FF6C6C6C">
+        <ItemsControl ItemsSource="{Binding Strips}">
+            <ItemsControl.ItemsPanel>
+                <ItemsPanelTemplate>
+                    <StackPanel Orientation="Vertical" VerticalAlignment="Bottom" IsItemsHost="True" HorizontalAlignment="Stretch" />
+                </ItemsPanelTemplate>
+            </ItemsControl.ItemsPanel>
+            <ItemsControl.ItemTemplate>
+                <DataTemplate>
+                    <controls:FlightStripControl DataContext="{Binding}" Background="#FF34788C" />
+                </DataTemplate>
+            </ItemsControl.ItemTemplate>
+        </ItemsControl>
+    </Grid>
+</Window>
