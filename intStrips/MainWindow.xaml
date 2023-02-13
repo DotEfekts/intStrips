@@ -5,11 +5,9 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:models="clr-namespace:intStrips.Models" 
         xmlns:controls="clr-namespace:intStrips.Controls"
-        mc:Ignorable="d"
+        d:DataContext="{d:DesignInstance Type=models:DesignMainWindowModel, IsDesignTimeCreatable=True}"
+        mc:Ignorable="d" MouseDown="window_MouseDown"
         Title="MainWindow" Height="600" Width="600" MinWidth="600">
-    <Window.DataContext>
-        <models:MainWindowModel />
-    </Window.DataContext>
     <Grid Background="#FF6C6C6C">
         <ItemsControl ItemsSource="{Binding Strips}">
             <ItemsControl.ItemsPanel>
@@ -19,7 +17,7 @@
             </ItemsControl.ItemsPanel>
             <ItemsControl.ItemTemplate>
                 <DataTemplate>
-                    <controls:FlightStripControl DataContext="{Binding}" Background="#FF34788C" />
+                    <controls:FlightStripControl DataContext="{Binding }" StripSelected="StripSelected" />
                 </DataTemplate>
             </ItemsControl.ItemTemplate>
         </ItemsControl>

@@ -4,9 +4,40 @@
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:models="clr-namespace:intStrips.Models"
+             xmlns:controls="clr-namespace:intStrips.Controls"
+             xmlns:helpers="clr-namespace:intStrips.Helpers"
              d:DataContext="{d:DesignInstance Type=models:DesignTimeStripModel, IsDesignTimeCreatable=True}"
              mc:Ignorable="d"
              d:DesignHeight="79" d:DesignWidth="604">
+    <UserControl.Resources>
+        <Style TargetType="TextBox">
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="{x:Type TextBox}">
+                        <Border x:Name="border" BorderBrush="{TemplateBinding BorderBrush}" BorderThickness="{TemplateBinding BorderThickness}" Background="{TemplateBinding Background}" SnapsToDevicePixels="True">
+                            <ScrollViewer x:Name="PART_ContentHost" Focusable="false" HorizontalScrollBarVisibility="Hidden" VerticalScrollBarVisibility="Hidden"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="true">
+                                <Setter Property="BorderBrush" TargetName="border" Value="#7F000000"/>
+                            </Trigger>
+                            <Trigger Property="IsFocused" Value="true">
+                                <Setter Property="BorderBrush" TargetName="border" Value="#ffcfcfe3"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+        <Style x:Key="TextBoxError" TargetType="{x:Type TextBox}">
+            <Style.Triggers>
+                <Trigger Property="Validation.HasError" Value="true">
+                    <Setter Property="Foreground" Value="#ffc1211b"/>
+                </Trigger>
+            </Style.Triggers>
+        </Style>
+        <ControlTemplate x:Key="NullTemplate" />
+    </UserControl.Resources>
     <Border BorderBrush="Lavender" BorderThickness="2,2,2,0">
     <Border BorderBrush="#7F000000" BorderThickness="1" >
         <Grid Background="{Binding BackgroundColor}">
@@ -34,9 +65,16 @@
                         <RowDefinition />
                     </Grid.RowDefinitions>
                     <Rectangle Margin="2,2,2,1"  Fill="{Binding ElementBackground}" />
-                    <Label Grid.Row="0" Content="{Binding Gate}" FontFamily="Segoe UI" FontWeight="Bold" VerticalAlignment="Center" HorizontalAlignment="Center" Padding="0" />
+                    <TextBox Grid.Row="0" MaxLength="5" 
+                             IsEnabled="{Binding EnableGroundFields, RelativeSource={RelativeSource AncestorType={x:Type controls:FlightStripControl}}}"
+                             PreviewTextInput="AlphanumericChecker" PreviewKeyDown="KeyHandlerNoSpace"
+                             Text="{Binding Gate, Mode=TwoWay}" 
+                             Background="Transparent" BorderBrush="Transparent" Margin="2" 
+                             TextAlignment="Center" FontFamily="Segoe UI" FontWeight="Bold" VerticalContentAlignment="Center"></TextBox>
                     <Rectangle Margin="2,1,2,2" Grid.Row="1" Fill="{Binding ElementBackground}" />
-                    <Label Content="{Binding AdCode}" Grid.Row="1" FontFamily="Segoe UI" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center" Padding="0" />
+                    <Label Content="{Binding AdCode}" Grid.Row="1"
+                           FontFamily="Segoe UI" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center" Padding="0" />
+                    <Button Grid.Row="1" Cursor="Hand" Opacity="0" Click="OpenFlightPlan" IsEnabled="{Binding Active}" />
                 </Grid>
             </Border>
             <Border Grid.Column="1" Grid.Row="0" Grid.ColumnSpan="2" BorderBrush="#80000000" BorderThickness="0,0,1,1">
@@ -75,25 +113,45 @@
                         <Label Content="{Binding SquawkingCodeMark}" Grid.Column="2" FontFamily="Segoe UI" VerticalAlignment="Center" HorizontalAlignment="Center" FontWeight="Bold" Padding="4" />
                         <Rectangle Fill="{Binding ElementBackground}" Grid.Column="3" Margin="1,1,2,2" />
                         <Label Content="{Binding SsrCode}" Grid.Column="3" FontFamily="Segoe UI" VerticalAlignment="Center" FontWeight="Bold" HorizontalAlignment="Right" Padding="4" />
+                        <Button Grid.Column="3" Cursor="Hand" Opacity="0" Click="OpenFlightPlan" IsEnabled="{Binding Active}" />
                     </Grid>
                 </Grid>
             </Border>
             <Border Grid.Column="3" Grid.Row="0" Grid.ColumnSpan="2" BorderBrush="#80000000" BorderThickness="0,0,1,1">
                 <Grid>
+                    <Rectangle Fill="{Binding CallsignBackground}" Margin="0" />
                     <Rectangle Fill="{Binding ElementBackground}" Margin="2" />
                     <Label Content="{Binding Callsign}" FontFamily="Segoe UI" FontSize="20" FontWeight="Bold" VerticalAlignment="Center" HorizontalAlignment="Center" Padding="4" />
+                    <Button Cursor="Hand" Opacity="0" Click="SelectStrip" IsEnabled="{Binding Active}" />
                 </Grid>
             </Border>
             <Border Grid.Row="0" Grid.Column="5" BorderBrush="#80000000" BorderThickness="0,0,1,1">
                 <Grid>
                     <Rectangle Fill="{Binding ElementBackground}" Margin="2" />
-                    <Label Content="{Binding Runway}" FontFamily="Segoe UI" FontSize="20" FontWeight="Bold" VerticalAlignment="Center" HorizontalAlignment="Center" Padding="4" />
+                    <TextBox MaxLength="3"
+                             Style="{StaticResource TextBoxError}" Validation.ErrorTemplate="{StaticResource NullTemplate}"
+                             IsEnabled="{Binding EnableGroundFields, RelativeSource={RelativeSource AncestorType={x:Type controls:FlightStripControl}}}"
+                             PreviewTextInput="RunwayChecker" PreviewKeyDown="KeyHandlerNoSpace"
+                             FontFamily="Segoe UI" Background="Transparent" BorderBrush="Transparent" Margin="2"
+                             FontSize="18" FontWeight="Bold" TextAlignment="Center" VerticalContentAlignment="Center">
+                        <TextBox.Text>
+                            <Binding Path="Runway">
+                                <Binding.ValidationRules>
+                                    <helpers:RunwayValidationRule />
+                                </Binding.ValidationRules>
+                            </Binding>
+                        </TextBox.Text>
+                    </TextBox>
                 </Grid>
             </Border>
             <Border Grid.Row="0" Grid.Column="6" BorderBrush="#80000000" BorderThickness="0,0,1,1">
                 <Grid>
                     <Rectangle Fill="{Binding ElementBackground}" Margin="2" />
-                    <Label Content="{Binding HoldingPoint}" FontFamily="Segoe UI" FontSize="20" FontWeight="Bold" VerticalAlignment="Center" HorizontalAlignment="Center" Padding="4" />
+                    <TextBox MaxLength="3" Text="{Binding HoldingPoint, Mode=TwoWay}"
+                             IsEnabled="{Binding EnableGroundFields, RelativeSource={RelativeSource AncestorType={x:Type controls:FlightStripControl}}}"
+                             PreviewTextInput="AlphanumericChecker" PreviewKeyDown="KeyHandlerNoSpace"
+                             FontFamily="Segoe UI" FontSize="18" Background="Transparent" BorderBrush="Transparent" 
+                             FontWeight="Bold" TextAlignment="Center" VerticalContentAlignment="Center" Margin="2" />
                 </Grid>
             </Border>
             <Border Grid.Column="7" Grid.Row="0" Grid.ColumnSpan="2" BorderBrush="#80000000" BorderThickness="0,0,1,1">
@@ -106,7 +164,21 @@
                     <Rectangle Fill="{Binding SelectedSidBackground}" />
                     <Label Grid.Row="0" Content="{Binding SelectedSid}" Margin="0, -1, 0, 0" FontFamily="Segoe UI" FontWeight="Bold" VerticalAlignment="Top" HorizontalAlignment="Center" Padding="0" />
                     <Label Content="{Binding SidTransition}" Grid.Row="1" Margin="0, -1, 0, 0" FontFamily="Segoe UI" FontWeight="Bold" VerticalAlignment="Center" HorizontalAlignment="Center" Padding="0" />
-                    <Label Content="{Binding AssignedHeading}" Grid.Row="2" Margin="0, -2, 0, 0" FontFamily="Segoe UI" FontWeight="Bold" VerticalAlignment="Bottom" HorizontalAlignment="Center" Padding="0" />
+                    <TextBox Grid.Row="2" Style="{StaticResource TextBoxError}" Validation.ErrorTemplate="{StaticResource NullTemplate}"
+                             PreviewTextInput="HeadingChecker" PreviewKeyDown="KeyHandlerNoSpace"
+                             IsEnabled="{Binding OnGround}"
+                             Margin="0" Padding="0, -3, 0, 0" MinWidth="50"
+                             Background="Transparent" BorderBrush="Transparent" MaxLength="4"
+                             FontFamily="Segoe UI" FontWeight="Bold" VerticalContentAlignment="Top"
+                             HorizontalAlignment="Center" TextAlignment="Center">
+                       <TextBox.Text>
+                           <Binding Path="AssignedHeading">
+                               <Binding.ValidationRules>
+                                   <helpers:HeadingValidationRule />
+                               </Binding.ValidationRules>
+                           </Binding>
+                       </TextBox.Text>
+                    </TextBox>
                 </Grid>
             </Border>
             <Border BorderBrush="#80000000" BorderThickness="0,0,1,1" Grid.Row="0" Grid.Column="9">
@@ -120,11 +192,20 @@
                         <RowDefinition />
                     </Grid.RowDefinitions>
                     <Rectangle Margin="2,2,2,1" Grid.ColumnSpan="2"  Fill="{Binding ElementBackground}" />
-                    <Label Content="{Binding RequestedAltitude}" Grid.Row="0" Grid.ColumnSpan="2" Grid.Column="0"
-                           FontFamily="Segoe UI" FontWeight="Bold" VerticalAlignment="Center" HorizontalAlignment="Right" Foreground="#99000000" Padding="4" />
+                    <TextBox Text="{Binding RequestedAltitude}" Grid.Row="0" Grid.ColumnSpan="2" Grid.Column="0"
+                             PreviewTextInput="NumericCheck" PreviewKeyDown="KeyHandlerNoSpace" 
+                             IsEnabled="{Binding Active}" MaxLength="3"
+                             Background="Transparent" BorderBrush="Transparent"
+                             FontFamily="Segoe UI" FontWeight="Bold" Margin="2" Padding="0"
+                             VerticalContentAlignment="Center" TextAlignment="Right" />
                     <Rectangle Margin="2,1,1,2" Grid.Row="1" Grid.Column="0" Fill="{Binding ElementBackground}" />
                     <Rectangle Margin="1,1,2,2" Grid.Column="1" Grid.Row="1" Fill="{Binding ElementBackground}" />
-                    <Label Content="{Binding AssignedAltitude}" Grid.Column="1" Grid.Row="1" FontFamily="Segoe UI" FontWeight="Bold" VerticalAlignment="Center" HorizontalAlignment="Right" Padding="4" />
+                    <TextBox Text="{Binding AssignedAltitude}" Grid.Column="1" Grid.Row="1"
+                             PreviewTextInput="NumericCheck" PreviewKeyDown="KeyHandlerNoSpace"
+                             IsEnabled="{Binding Active}" MaxLength="3"
+                             Background="Transparent" BorderBrush="Transparent"
+                             FontFamily="Segoe UI" FontWeight="Bold" Margin="2" Padding="0"
+                             VerticalContentAlignment="Center" TextAlignment="Right" />
                 </Grid>
             </Border>
             <Border BorderBrush="#80000000" BorderThickness="0,0,0,1" Grid.Row="0" Grid.Column="10" >
@@ -134,33 +215,58 @@
                         <RowDefinition />
                     </Grid.RowDefinitions>
                     <Label Content="{Binding FlightStageCode}" FontFamily="Segoe UI" FontWeight="Bold" VerticalAlignment="Center" HorizontalAlignment="Center" Padding="0" />
-                    <Label Content="{Binding AssignedFrequency}" Grid.Row="1" FontFamily="Segoe UI" FontWeight="Bold" HorizontalAlignment="Center" VerticalAlignment="Center" Padding="0" />
+                    <Button Grid.Row="0" Cursor="Hand" Opacity="0" Click="CycleStage" IsEnabled="{Binding InTowerStage}" />
+                    <TextBox Grid.Row="1" Style="{StaticResource TextBoxError}" Validation.ErrorTemplate="{StaticResource NullTemplate}"
+                             Background="Transparent" BorderBrush="Transparent" MaxLength="7" 
+                             PreviewTextInput="RadioFreqCheck" PreviewKeyDown="KeyHandlerNoSpace" IsEnabled="{Binding Active}"
+                             FontFamily="Segoe UI" FontWeight="Bold" TextAlignment="Center" VerticalContentAlignment="Center" Padding="0">
+                        <TextBox.Text>
+                            <Binding Path="AssignedFrequency">
+                                <Binding.ValidationRules>
+                                    <helpers:FrequencyValidationRule />
+                                </Binding.ValidationRules>
+                            </Binding>
+                        </TextBox.Text>
+                    </TextBox>
                 </Grid>
             </Border>
             <Border BorderBrush="#80000000" BorderThickness="0,0,1,0" Grid.Row="1" Grid.ColumnSpan="2" Grid.Column="0">
                 <Grid Background="{Binding ElementBackground}" Margin="2">
-                    <ScrollViewer VerticalScrollBarVisibility="Hidden">
-                        <Label Content="{Binding FlightRoute}" FontSize="10" FontFamily="Segoe UI" Padding="2,0,2,0" HorizontalAlignment="Center" />
+                    <ScrollViewer VerticalScrollBarVisibility="Hidden" >
+                        <TextBlock TextWrapping="WrapWithOverflow" Text="{Binding FlightRoute}" FontSize="10" FontFamily="Segoe UI" Padding="2,0,2,0" HorizontalAlignment="Center" />
                     </ScrollViewer>
+                    <Button Grid.Row="0" Cursor="Hand" Opacity="0" Click="OpenFlightPlan" IsEnabled="{Binding Active}" />
                 </Grid>
             </Border>
             <Border BorderBrush="#80000000" BorderThickness="0,0,1,0" Grid.Column="2" Grid.Row="1" Grid.ColumnSpan="2" >
                 <Grid Background="{Binding ElementBackground}" Margin="2">
-                    <Label Content="{Binding FlightRemarks}" Foreground="#ffe2312d" FontFamily="Segoe UI" Padding="2,0,2,0" VerticalAlignment="Center" HorizontalAlignment="Center" />
+                    <TextBox Text="{Binding FlightRemarks}" PreviewKeyDown="KeyHandler"
+                             CharacterCasing="Upper" IsEnabled="{Binding Active}"
+                             Background="Transparent" BorderBrush="Transparent"
+                             FontWeight="Bold" FontFamily="Segoe UI" Padding="2,0,2,0" 
+                             VerticalContentAlignment="Center" TextAlignment="Center" />
                 </Grid>
             </Border>
             <Border BorderBrush="#80000000" BorderThickness="0,0,1,0" Grid.Column="4" Grid.Row="1" Grid.ColumnSpan="3" >
                 <Grid Background="{Binding ElementBackground}" Margin="2">
-                    <Label Content="{Binding TakeoffRemarks}" FontFamily="Segoe UI" Padding="2,0,2,0" VerticalAlignment="Center" HorizontalAlignment="Center" />
+                    <TextBox Text="{Binding LevelRemarks}" PreviewKeyDown="KeyHandler"
+                             CharacterCasing="Upper" IsEnabled="{Binding Active}"
+                             Background="Transparent" BorderBrush="Transparent"
+                             FontFamily="Segoe UI" Padding="2,0,2,0" 
+                             VerticalContentAlignment="Center" />
                 </Grid>
             </Border>
             <Border BorderBrush="#80000000" BorderThickness="0,0,1,0" Grid.Column="7" Grid.Row="1" Grid.ColumnSpan="3" >
                 <Grid Background="{Binding ElementBackground}" Margin="2">
-                    <Label Content="{Binding GlobalRemarks}" FontFamily="Segoe UI" Padding="2,0,2,0" VerticalAlignment="Center" />
+                    <TextBox Text="{Binding GlobalRemarks, Mode=TwoWay}" PreviewKeyDown="KeyHandler"
+                             CharacterCasing="Upper" IsEnabled="{Binding Active}"
+                             Background="Transparent" BorderBrush="Transparent"
+                             FontFamily="Segoe UI" Padding="2,0,2,0" VerticalContentAlignment="Center" />
                 </Grid>
             </Border>
             <Grid Background="{Binding TimeBackground}" Margin="2" Grid.Column="10" Grid.Row="1">
                 <Label Content="{Binding TimeDisplay}" FontFamily="Segoe UI" Padding="2,0,2,0" VerticalAlignment="Center" HorizontalAlignment="Center" />
+                <Button Cursor="Hand" Opacity="0" Click="OpenFlightPlan" IsEnabled="{Binding Active}" />
             </Grid>
         </Grid>
     </Border>

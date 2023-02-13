@@ -1,17 +1,19 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+using System.ComponentModel;
+using System.Diagnostics;
+using System.Runtime.CompilerServices;
 
 namespace intStrips.Models
 {
-    internal class FlightStripModel
+    public class FlightStripModel : INotifyPropertyChanged
     {
         public StripType StripType { get; set; } = StripType.DEPARTURE;
         public string BackgroundColor => StripType == StripType.DEPARTURE ? "#ff9fb4b5" : StripType == StripType.LOCAL ? "#ffbc618c" : "#ffd7bb94";
         public bool Active { get; set; } = true;
+
+        public bool Selected { get; set; }
         public string ElementBackground => Active ? "#00ffffff" : "#ffab9584";
+        public string CallsignBackground => Selected ? "#ffcfcfe3" : "#00ffffff";
 
         public string Callsign { get; set; }
 
@@ -140,6 +142,7 @@ namespace intStrips.Models
         public int? AssignedAltitude { get; set; }
 
         public FlightStage FlightStage { get; set; } = FlightStage.TAXI;
+
         public string FlightStageCode
         {
             get
@@ -157,11 +160,13 @@ namespace intStrips.Models
                 }
             }
         }
+        public bool InTowerStage => FlightStage == FlightStage.TAXI || !string.IsNullOrWhiteSpace(FlightStageCode);
+
         public string AssignedFrequency { get; set; }
 
         public string FlightRoute { get; set; }
         public string FlightRemarks { get; set; }
-        public string TakeoffRemarks { get; set; }
+        public string LevelRemarks { get; set; }
         public string GlobalRemarks { get; set; }
 
         public bool OnGround { get; set; }
@@ -174,7 +179,7 @@ namespace intStrips.Models
                     return ElementBackground;
 
                 if ((StripType == StripType.DEPARTURE && FlightStage == FlightStage.AIRBORNE) ||
-                   (StripType == StripType.DEPARTURE && FlightStage == FlightStage.LANDED))
+                   (StripType == StripType.ARRIVAL && FlightStage == FlightStage.LANDED))
                     return "#ff02b113";
 
                 return ElementBackground;
@@ -194,34 +199,42 @@ namespace intStrips.Models
                 return StripTime.Value.ToString("hh:mm");
             }
         }
+
+        public event PropertyChangedEventHandler PropertyChanged;
+
+        public virtual void OnPropertyChanged(string propertyName)
+        {
+            var caller = new StackFrame(2).GetMethod().DeclaringType?.Name;
+            PropertyChanged?.Invoke(this, new PropertyChangedCallerEventArgs(propertyName, caller));
+        }
     }
 
-    internal enum StripType
+    public enum StripType
     {
         ARRIVAL, DEPARTURE, LOCAL
     }
 
-    internal enum ApproachCategory
+    public enum ApproachCategory
     {
         NONE, A, B, C, D, E
     }
 
-    internal enum WakeClass
+    public enum WakeClass
     {
-        LIGHT, MEDIUM, HEAVY, SUPER
+        LIGHT, MEDIUM, HEAVY, SUPER, UNKNOWN
     }
 
-    internal enum FlightType
+    public enum FlightType
     {
         SCHEDULED, NON_SCHEDULED, GENERAL_AVIATION, MILITARY, OTHER
     }
 
-    internal enum FlightRules
+    public enum FlightRules
     {
-        VISUAL, INSTRUMENT, VISUAL_TO_INST, INST_TO_VISUAL
+        VISUAL, INSTRUMENT, VISUAL_TO_INST, INST_TO_VISUAL, UNKNOWN
     }
 
-    internal enum FlightStage
+    public enum FlightStage
     {
         CLEARANCE, TAXI, READY, LINE_UP, TAKEOFF, AIRBORNE, LANDED
     }
@@ -237,7 +250,7 @@ namespace intStrips.Models
             Origin = "YMML";
             Destination = "YPPH";
             ApproachCategory = ApproachCategory.C;
-            AircraftType = "A30N";
+            AircraftType = "A20N";
             WakeClass = WakeClass.MEDIUM;
             FlightType = FlightType.SCHEDULED;
             FlightRules = FlightRules.INSTRUMENT;
@@ -252,9 +265,9 @@ namespace intStrips.Models
             AssignedAltitude = 50;
             FlightStage = FlightStage.READY;
             AssignedFrequency = "122.8";
-            FlightRoute = "P90";
+            FlightRoute = "KADOM H44 AD Q33 ESP Q158 BEVLY Q33 ESP Q158 BEVLY";
             FlightRemarks = "";
-            TakeoffRemarks = "";
+            LevelRemarks = "";
             GlobalRemarks = "R290";
             OnGround = true;
             StripTime = DateTime.UtcNow.AddMinutes(5);
