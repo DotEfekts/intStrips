@@ -1,10 +1,10 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.ComponentModel;
-using System.Diagnostics;
 using System.Linq;
 using intStrips.Helpers;
 using intStrips.Models;
+using intStripsShared.Models;
 
 namespace intStrips.Services
 {
@@ -13,6 +13,8 @@ namespace intStrips.Services
         private readonly IFlightDataReader _dataReader;
         private readonly IFlightDataWriter _dataWriter;
         private readonly IControlInfoService _infoService;
+
+        private Dictionary<string, FlightDataModel> _data = new Dictionary<string, FlightDataModel>();
         private Dictionary<string, FlightStripModel> _strips = new Dictionary<string, FlightStripModel>();
 
         public FlightStripService(
@@ -25,81 +27,76 @@ namespace intStrips.Services
             _infoService = infoService;
 
             _dataReader.FlightDataChanged += DataChanged;
+            _dataReader.FlightDataRefreshed += DataRefreshed;
+            _dataReader.FlightDataAdded += DataAdded;
+            _dataReader.FlightDataRemoved += DataRemoved;
+            _infoService.ControlInfoChanged += HandleControlInfoChanged;
         }
 
-        public FlightStripModel[] GetAllFlightStrips()
+        private void DataRemoved(object sender, FlightDataRemovedArgs e)
         {
-            var data = _dataReader.GetAllFlightData();
-            var strips = data.Select(d => new
+            _data.Remove(e.Callsign);
+            if (_strips.ContainsKey(e.Callsign))
+                _strips[e.Callsign].PropertyChanged -= NotifyStripChanged;
+            _strips.Remove(e.Callsign);
+            
+            FlightStripRemoved?.Invoke(this, new FlightStripRemovedArgs
             {
-                Data = d,
-                Strip = new FlightStripModel
-                {
-                    Callsign = d.Callsign,
-                    Origin = d.Origin,
-                    Destination = d.Destination,
-                    ApproachCategory = Utilities.ParseApproachCategory(d.ApproachCategory),
-                    AircraftType = d.AircraftType,
-                    WakeClass = Utilities.ParseWakeClass(d.WakeClass),
-                    FlightType = Utilities.ParseFlightType(d.FlightType),
-                    FlightRules = Utilities.ParseFlightRules(d.FlightRules),
-                    SsrCode = int.TryParse(d.SsrCode, out var ssr) ? (int?) ssr : null,
-                    SelectedSid = d.SelectedSid,
-                    SidTransition = d.SidTransition,
-                    AssignedHeading = d.AssignedHeading,
-                    RequestedAltitude = int.TryParse(d.RequestedAltitude, out var reqAlt) ? reqAlt : 7,
-                    AssignedAltitude = int.TryParse(d.AssignedAltitude, out var asnAlt) ? (int?) asnAlt : null,
-                    FlightStage = Utilities.ParseFlightStage(d.FlightStage),
-                    AssignedFrequency = d.AssignedFrequency,
-                    FlightRoute = d.FlightRoute,
-                    FlightRemarks = d.FlightRemarks,
-                    LevelRemarks = d.TowerRemarks,
-                    GlobalRemarks = d.GlobalRemarks
-                }
+                Callsign = e.Callsign
+            });
+        }
+
+        private void DataAdded(object sender, FlightDataAddedArgs f)
+        {
+            _data[f.Callsign] = f.FlightData;
+            var controlling = _infoService.LastKnownInfo().AerodromeSource.Select(s => s.AerodromeCode).ToArray();
+            _strips[f.Callsign] = GenerateStrip(f.FlightData, controlling);
+            _strips[f.Callsign].PropertyChanged += NotifyStripChanged;
+            
+            FlightStripChanged?.Invoke(this, new FlightStripChangedArgs
+            {
+                Callsign = f.Callsign,
+                Strip = _strips[f.Callsign]
+            });
+        }
+
+        public void RequestAllFlightData()
+        {
+            _dataReader.RequestAllFlightData();
+        }
+
+        private void HandleControlInfoChanged(object sender, ControlInfoModel e)
+        {
+            ProcessStrips();
+        }
+
+        private void DataRefreshed(object sender, FlightDataModel[] data)
+        {
+            _data = data.ToDictionary(d => d.Callsign, d => d);
+            ProcessStrips();
+        }
+
+        private void ProcessStrips()
+        {
+            foreach(var strip in _strips.Values)
+                strip.PropertyChanged -= NotifyStripChanged;
+            
+            var controlling = _infoService.LastKnownInfo().AerodromeSource.Select(s => s.AerodromeCode).ToArray();
+            var strips = _data.Select(d => new
+            {
+                Data = d.Value,
+                Strip = GenerateStrip(d.Value, controlling)
             }).ToArray();
 
-            var controlling = _infoService.GetControllingAerodrome();
             foreach (var s in strips)
-            {
-                if (s.Strip.Destination == controlling)
-                {
-                    s.Strip.StripType = StripType.ARRIVAL;
-                    s.Strip.Active = true;
-                    s.Strip.Gate = s.Data.DestinationGate;
-                    s.Strip.Runway = s.Data.ArrivalRunway;
-                    s.Strip.HoldingPoint = s.Data.ArrivalHoldingPoint;
-                    s.Strip.OnGround = s.Strip.FlightStage == FlightStage.LANDED;
-
-                    if(!s.Strip.OnGround)
-                        s.Strip.StripTime = DateTime.TryParse(s.Data.EstimatedArrivalTime, out var estimatedArrival) ? estimatedArrival : DateTime.MinValue;
-                    if(s.Strip.OnGround)
-                        s.Strip.StripTime = DateTime.TryParse(s.Data.ActualArrivalTime, out var actualArrival) ? actualArrival : DateTime.MinValue;
-                } 
-                else if (s.Strip.Origin == controlling)
-                {
-                    s.Strip.StripType = StripType.DEPARTURE;
-                    s.Strip.Active = true;
-                    s.Strip.Gate = s.Data.OriginGate;
-                    s.Strip.Runway = s.Data.DepartureRunway;
-                    s.Strip.HoldingPoint = s.Data.DepartureHoldingPoint;
-                    s.Strip.OnGround = s.Strip.FlightStage != FlightStage.AIRBORNE;
-
-                    if(s.Strip.OnGround)
-                        s.Strip.StripTime = DateTime.TryParse(s.Data.EstimatedDepartureTime, out var estimatedDeparture) ? estimatedDeparture : DateTime.MinValue;
-                    if(!s.Strip.OnGround)
-                        s.Strip.StripTime = DateTime.TryParse(s.Data.ActualDepartureTime, out var actualDeparture) ? actualDeparture : DateTime.MinValue;
-                }
-                else
-                {
-                    s.Strip.StripType = StripType.LOCAL;
-                    s.Strip.Active = false;
-                }
-
                 s.Strip.PropertyChanged += NotifyStripChanged;
-            }
 
             _strips = strips.ToDictionary(s => s.Strip.Callsign, s => s.Strip);
-            return strips.Select(s => s.Strip).ToArray();
+            
+            FlightStripsRefreshed?.Invoke(this, new FlightStripsRefreshedArgs
+            {
+              Strips = strips.Select(s => s.Strip).ToArray()
+            });
         }
 
         private void NotifyStripChanged(object sender, PropertyChangedEventArgs e)
@@ -222,7 +219,22 @@ namespace intStrips.Services
                 if (e.PropertyName == nameof(strip.LevelRemarks))
                 {
                     newData = strip.LevelRemarks;
-                    property = nameof(FlightDataModel.TowerRemarks);
+
+                    var controlLevel = _infoService.LastKnownInfo().ControlPosition;
+                    switch (controlLevel)
+                    {
+                        case ControlPosition.TOWER:
+                            property = nameof(FlightDataModel.TowerRemarks);
+                            break;
+                        case ControlPosition.TMA:
+                            property = nameof(FlightDataModel.TmaRemarks);
+                            break;
+                        case ControlPosition.ENROUTE:
+                            property = nameof(FlightDataModel.EnrouteRemarks);
+                            break;
+                        default:
+                            throw new ArgumentOutOfRangeException();
+                    }
                 }
 
                 if (e.PropertyName == nameof(strip.GlobalRemarks))
@@ -242,6 +254,9 @@ namespace intStrips.Services
                 return;
             var stripChanged = _strips[e.Callsign];
             string property = null;
+            
+            var controlInfo = _infoService.LastKnownInfo();
+            var controlling = controlInfo.AerodromeSource.Select(s => s.AerodromeCode).ToArray();;
 
             if (e.Field == nameof(FlightDataModel.OriginGate) && stripChanged.StripType == StripType.DEPARTURE)
             {
@@ -254,13 +269,12 @@ namespace intStrips.Services
                 property = nameof(stripChanged.Gate);
             }
 
-            var controlling = _infoService.GetControllingAerodrome();
             if (e.Field == nameof(FlightDataModel.Origin))
             {
                 stripChanged.Origin = e.Update;
                 property = nameof(stripChanged.Origin);
                 
-                if (stripChanged.StripType == StripType.DEPARTURE && e.Update != controlling)
+                if (stripChanged.StripType == StripType.DEPARTURE && !controlling.Contains(e.Update))
                 {
                     stripChanged.StripType = StripType.LOCAL;
                     stripChanged.Active = false;
@@ -268,7 +282,7 @@ namespace intStrips.Services
                     stripChanged.OnGround = false;
                     stripChanged.StripTime = DateTime.MinValue;
                 }
-                else if (stripChanged.StripType != StripType.DEPARTURE && e.Update == controlling)
+                else if (stripChanged.StripType != StripType.DEPARTURE && !controlling.Contains(e.Update))
                 {
                     stripChanged.StripType = StripType.DEPARTURE;
                     stripChanged.Active = true;
@@ -283,7 +297,7 @@ namespace intStrips.Services
                 stripChanged.Destination = e.Update;
                 property = nameof(stripChanged.Destination);
                 
-                if (stripChanged.StripType == StripType.ARRIVAL && e.Update != controlling)
+                if (stripChanged.StripType == StripType.ARRIVAL && !controlling.Contains(e.Update))
                 {
                     stripChanged.StripType = StripType.LOCAL;
                     stripChanged.Active = false;
@@ -291,7 +305,7 @@ namespace intStrips.Services
                     stripChanged.OnGround = false;
                     stripChanged.StripTime = DateTime.MinValue;
                 }
-                else if (stripChanged.StripType != StripType.ARRIVAL && e.Update == controlling)
+                else if (stripChanged.StripType != StripType.ARRIVAL && !controlling.Contains(e.Update))
                 {
                     stripChanged.StripType = StripType.ARRIVAL;
                     stripChanged.Active = true;
@@ -418,7 +432,19 @@ namespace intStrips.Services
                 property = nameof(stripChanged.FlightRemarks);
             }
         
-            if (e.Field == nameof(FlightDataModel.TowerRemarks))
+            if (e.Field == nameof(FlightDataModel.TowerRemarks) && controlInfo.ControlPosition == ControlPosition.TOWER)
+            {
+                stripChanged.LevelRemarks = e.Update;
+                property = nameof(stripChanged.LevelRemarks);
+            }
+        
+            if (e.Field == nameof(FlightDataModel.TmaRemarks) && controlInfo.ControlPosition == ControlPosition.TMA)
+            {
+                stripChanged.LevelRemarks = e.Update;
+                property = nameof(stripChanged.LevelRemarks);
+            }
+        
+            if (e.Field == nameof(FlightDataModel.EnrouteRemarks) && controlInfo.ControlPosition == ControlPosition.ENROUTE)
             {
                 stripChanged.LevelRemarks = e.Update;
                 property = nameof(stripChanged.LevelRemarks);
@@ -432,34 +458,46 @@ namespace intStrips.Services
         
             if (e.Field == nameof(FlightDataModel.EstimatedDepartureTime) && stripChanged.StripType == StripType.DEPARTURE && stripChanged.OnGround)
             {
-                stripChanged.StripTime = DateTime.TryParse(e.Update, out var estimatedDeparture)
-                    ? estimatedDeparture
-                    : DateTime.MinValue;
+                if(DateTime.TryParse(e.Update, out var estimatedDeparture))
+                    stripChanged.StripTime = estimatedDeparture;
                 property = nameof(stripChanged.StripTime);
             }
             
-            if (e.Field == nameof(FlightDataModel.ActualDepartureTime) && stripChanged.StripType == StripType.DEPARTURE && !stripChanged.OnGround)
+            if (e.Field == nameof(FlightDataModel.ActualDepartureTime) && stripChanged.StripType == StripType.DEPARTURE)
             {
-                stripChanged.StripTime = DateTime.TryParse(e.Update, out var actualDeparture)
-                    ? actualDeparture
-                    : DateTime.MinValue;
+                if(DateTime.TryParse(e.Update, out var actualDeparture))
+                    stripChanged.StripTime = actualDeparture;
                 property = nameof(stripChanged.StripTime);
             }
             
-            if (e.Field == nameof(FlightDataModel.EstimatedArrivalTime) && stripChanged.StripType == StripType.ARRIVAL && stripChanged.OnGround)
+            if (e.Field == nameof(FlightDataModel.EstimatedArrivalTime) && stripChanged.StripType == StripType.ARRIVAL && !stripChanged.OnGround)
             {
-                stripChanged.StripTime = DateTime.TryParse(e.Update, out var estimatedArrival)
-                    ? estimatedArrival
-                    : DateTime.MinValue;
+                if(DateTime.TryParse(e.Update, out var estimatedArrival))
+                    stripChanged.StripTime = estimatedArrival;
                 property = nameof(stripChanged.StripTime);
             }
             
-            if (e.Field == nameof(FlightDataModel.ActualArrivalTime) && stripChanged.StripType == StripType.ARRIVAL && !stripChanged.OnGround)
+            if (e.Field == nameof(FlightDataModel.ActualArrivalTime) && stripChanged.StripType == StripType.ARRIVAL)
             {
-                stripChanged.StripTime = DateTime.TryParse(e.Update, out var actualArrival)
-                    ? actualArrival
-                    : DateTime.MinValue;
+                if(DateTime.TryParse(e.Update, out var actualArrival))
+                    stripChanged.StripTime = actualArrival;
                 property = nameof(stripChanged.StripTime);
+            }
+            
+            if (e.Field == nameof(FlightDataModel.SquawkingCode))
+            {
+                stripChanged.SquawkingCode = e.Update == "true";
+                property = nameof(stripChanged.SquawkingCode);
+            }
+            
+            if (e.Field == nameof(FlightDataModel.OnGround))
+            {
+                if(stripChanged.StripType == StripType.DEPARTURE)
+                    stripChanged.OnGround = string.IsNullOrWhiteSpace(e.Update) || e.Update == "true";
+                else
+                    stripChanged.OnGround = !string.IsNullOrWhiteSpace(e.Update) && e.Update == "true";
+
+                property = nameof(stripChanged.OnGround);
             }
 
             if (property != null)
@@ -472,12 +510,85 @@ namespace intStrips.Services
             }
         }
 
+        public event EventHandler<FlightStripsRefreshedArgs> FlightStripsRefreshed;
         public event EventHandler<FlightStripChangedArgs> FlightStripChanged;
         public event EventHandler<FlightStripRemovedArgs> FlightStripRemoved;
 
         public void UpdateStripData(string callsign, string property, string value)
         {
             _dataWriter.SetFlightDataField(this, callsign, property, value);
+        }
+
+        public void Dispose()
+        {
+            _dataReader?.Dispose();
+            _dataWriter?.Dispose();
+        }
+
+        public static FlightStripModel GenerateStrip(FlightDataModel d, string[] controlling)
+        {
+            var strip = new FlightStripModel
+            {
+                Callsign = d.Callsign,
+                Origin = d.Origin,
+                Destination = d.Destination,
+                ApproachCategory = Utilities.ParseApproachCategory(d.ApproachCategory),
+                AircraftType = d.AircraftType,
+                WakeClass = Utilities.ParseWakeClass(d.WakeClass),
+                FlightType = Utilities.ParseFlightType(d.FlightType),
+                FlightRules = Utilities.ParseFlightRules(d.FlightRules),
+                SsrCode = int.TryParse(d.SsrCode, out var ssr) ? (int?)ssr : null,
+                SquawkingCode = d.SquawkingCode == "True",
+                SelectedSid = d.SelectedSid,
+                SidTransition = d.SidTransition,
+                AssignedHeading = d.AssignedHeading,
+                RequestedAltitude = int.TryParse(d.RequestedAltitude, out var reqAlt) ? reqAlt : 7,
+                AssignedAltitude = int.TryParse(d.AssignedAltitude, out var asnAlt) ? (int?)asnAlt : null,
+                FlightStage = Utilities.ParseFlightStage(d.FlightStage),
+                AssignedFrequency = d.AssignedFrequency,
+                FlightRoute = d.FlightRoute,
+                FlightRemarks = d.FlightRemarks,
+                LevelRemarks = d.TowerRemarks,
+                GlobalRemarks = d.GlobalRemarks
+            };
+            
+            if (controlling.Contains(strip.Destination) && (!controlling.Contains(strip.Origin) || d.ActualDepartureTime != ""))
+            {
+                strip.StripType = StripType.ARRIVAL;
+                strip.Active = true;
+                strip.Gate = d.DestinationGate;
+                strip.Runway = d.ArrivalRunway;
+                strip.HoldingPoint = d.ArrivalHoldingPoint;
+                strip.OnGround = !string.IsNullOrWhiteSpace(d.OnGround) && d.OnGround == "True";
+                    
+                strip.StripTime =
+                    DateTime.TryParse(d.ActualArrivalTime, out var actualArrival) ? 
+                        actualArrival :
+                        DateTime.TryParse(d.EstimatedArrivalTime, out var estimatedArrival) ?
+                            estimatedArrival : DateTime.MinValue;
+            } 
+            else if (controlling.Contains(strip.Origin))
+            {
+                strip.StripType = StripType.DEPARTURE;
+                strip.Active = true;
+                strip.Gate = d.OriginGate;
+                strip.Runway = d.DepartureRunway;
+                strip.HoldingPoint = d.DepartureHoldingPoint;
+                strip.OnGround = string.IsNullOrWhiteSpace(d.OnGround) || d.OnGround == "True";
+
+                strip.StripTime =
+                    DateTime.TryParse(d.ActualDepartureTime, out var actualArrival) ? 
+                        actualArrival :
+                        DateTime.TryParse(d.EstimatedDepartureTime, out var estimatedArrival) ?
+                            estimatedArrival : DateTime.MinValue;
+            }
+            else
+            {
+                strip.StripType = StripType.LOCAL;
+                strip.Active = false;
+            }
+
+            return strip;
         }
     }
 }

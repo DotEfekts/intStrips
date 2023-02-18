@@ -1,7 +1,11 @@
-﻿namespace intStrips.Services
+﻿using System;
+using intStripsShared.Models;
+
+namespace intStrips.Services
 {
     public interface IControlInfoService
     {
-        string GetControllingAerodrome();
+        ControlInfoModel LastKnownInfo();
+        event EventHandler<ControlInfoModel> ControlInfoChanged;
     }
 }

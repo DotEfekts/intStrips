@@ -1,0 +1,57 @@
+syntax = "proto3";
+
+option csharp_namespace = "intStripsServer";
+
+package flight;
+
+// The flight data service definition.
+service FlightData {
+  // Sends a greeting
+  rpc SendFlightUpdate (FlightUpdateRequest) returns (FlightUpdateReply);
+  rpc GetDataForFlights (FlightInfoRequest) returns (FlightInfoReply);
+  rpc OpenUpdateSocket (Empty) returns (stream FlightUpdateReply);
+}
+
+message Empty {}
+
+// The request message containing the user's name.
+message FlightUpdateRequest {
+  string callsign = 1;
+  string field = 2;
+  string value = 3;
+}
+
+// The response message containing the greetings.
+message FlightUpdateReply {
+  string callsign = 1;
+  string field = 2;
+  string value = 3;
+}
+
+message FlightInfoRequest {
+  repeated string callsign = 1;
+}
+
+message FlightInfoReply {
+  repeated FlightInfo flights = 1;
+}
+
+message FlightInfo {
+  string callsign = 1;
+
+  string originGate = 2;
+  string destinationGate = 3;
+
+  string departureHoldingPoint = 4;
+  string arrivalHoldingPoint = 5;
+
+  string assignedHeading = 6;
+
+  string flightStage = 7;
+  string assignedFrequency = 8;
+
+  string flightRemarks = 9;
+  string towerRemarks = 10;
+  string tmaRemarks = 11;
+  string enrouteRemarks = 12;
+}

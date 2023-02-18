@@ -116,7 +116,7 @@ namespace intStrips.Models
             }
         }
         public bool SquawkingCode { get; set; }
-        public string SquawkingCodeMark => SquawkingCode ? "*" : "";
+        public string SquawkingCodeMark => SsrCode.HasValue ? SquawkingCode ? "*" : "" : "#";
         public int? SsrCode { get; set; }
 
         public string Runway { get; set; }
@@ -178,8 +178,8 @@ namespace intStrips.Models
                 if (!Active)
                     return ElementBackground;
 
-                if ((StripType == StripType.DEPARTURE && FlightStage == FlightStage.AIRBORNE) ||
-                   (StripType == StripType.ARRIVAL && FlightStage == FlightStage.LANDED))
+                if ((StripType == StripType.DEPARTURE && !OnGround) ||
+                   (StripType == StripType.ARRIVAL && OnGround))
                     return "#ff02b113";
 
                 return ElementBackground;

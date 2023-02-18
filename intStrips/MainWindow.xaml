@@ -10,6 +10,13 @@
         Title="MainWindow" Height="600" Width="600" MinWidth="600">
     <Grid Background="#FF6C6C6C">
         <ItemsControl ItemsSource="{Binding Strips}">
+            <ItemsControl.Template>
+                <ControlTemplate>
+                    <ScrollViewer VerticalScrollBarVisibility="Hidden">
+                        <ItemsPresenter />
+                    </ScrollViewer>
+                </ControlTemplate>
+            </ItemsControl.Template>
             <ItemsControl.ItemsPanel>
                 <ItemsPanelTemplate>
                     <StackPanel Orientation="Vertical" VerticalAlignment="Bottom" IsItemsHost="True" HorizontalAlignment="Stretch" />

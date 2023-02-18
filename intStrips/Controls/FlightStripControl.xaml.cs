@@ -186,6 +186,8 @@ namespace intStrips.Controls
 
         private void OpenFlightPlan(object sender, RoutedEventArgs e)
         {
+            if (DataContext is FlightStripModel strip)
+                VatSysConnector.Instance.SendOpenFlightPlanCommand(strip.Callsign);
         }
 
         private void SelectStrip(object sender, RoutedEventArgs e)
@@ -197,6 +199,14 @@ namespace intStrips.Controls
                     Strip = strip,
                     Callsign = strip.Callsign
                 });
+            }
+        }
+
+        private void AutoAssignSSR(object sender, RoutedEventArgs e)
+        {
+            if (DataContext is FlightStripModel strip && !strip.SsrCode.HasValue)
+            {
+                VatSysConnector.Instance.RequestSsrAutoAssign(strip.Callsign);
             }
         }
     }

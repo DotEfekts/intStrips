@@ -1,5 +1,10 @@
 ﻿namespace intStrips.Models
 {
+    public class FlightStripsRefreshedArgs
+    {
+        public FlightStripModel[] Strips { get; set; }
+    }
+    
     public class FlightStripChangedArgs
     {
         public string Callsign { get; set; }

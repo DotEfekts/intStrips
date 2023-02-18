@@ -3,9 +3,10 @@ using intStrips.Models;
 
 namespace intStrips.Services
 {
-    public interface IFlightDataReader
+    public interface IFlightDataReader : IDisposable
     {
-        FlightDataModel[] GetAllFlightData();
+        void RequestAllFlightData();
+        event EventHandler<FlightDataModel[]> FlightDataRefreshed;
         event EventHandler<FlightDataAddedArgs> FlightDataAdded;
         event EventHandler<FlightDataChangedArgs> FlightDataChanged;
         event EventHandler<FlightDataRemovedArgs> FlightDataRemoved;

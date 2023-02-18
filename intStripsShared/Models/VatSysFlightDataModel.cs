@@ -1,11 +1,12 @@
-﻿namespace intStrips.Models
+﻿using System;
+
+namespace intStripsShared.Models
 {
-    public class FlightDataModel
+    [Serializable]
+    public class VatSysFlightDataModel
     {
         public string Callsign { get; set; }
 
-        public string OriginGate { get; set; }
-        public string DestinationGate { get; set; }
         public string Origin { get; set; }
         public string Destination { get; set; }
         
@@ -20,25 +21,17 @@
 
         public string DepartureRunway { get; set; }
         public string ArrivalRunway { get; set; }
-        public string DepartureHoldingPoint { get; set; }
-        public string ArrivalHoldingPoint { get; set; }
 
         public string SelectedSid { get; set; }
         public string SidTransition { get; set; }
-        public string AssignedHeading { get; set; }
 
         public string RequestedAltitude { get; set; }
         public string AssignedAltitude { get; set; }
-
-        public string FlightStage { get; set; }
+        
+        public string TrackAvailable { get; set; }
         public string OnGround { get; set; }
-        public string AssignedFrequency { get; set; }
 
         public string FlightRoute { get; set; }
-        public string FlightRemarks { get; set; }
-        public string TowerRemarks { get; set; }
-        public string TmaRemarks { get; set; }
-        public string EnrouteRemarks { get; set; }
         public string GlobalRemarks { get; set; }
 
         public string EstimatedDepartureTime { get; set; }

@@ -8,8 +8,15 @@ namespace intStrips.Services
 
         static FlightStripServiceProvider()
         {
-            var mockData = new MockFlightDataService();
-            Service = new FlightStripService(mockData, mockData, new MockControlInfoService());
+            var vatSysConnector = VatSysConnector.Instance;
+            var intStripsConnector = IntStripsConnector.Instance;
+            
+            var vatSysInStripsConnector = new VatSysIntStripsServerDataReader(vatSysConnector, intStripsConnector);
+            var vatSysInfoService = new VatSysControlInfoService(vatSysConnector);
+            //var mockDataWriter = new MockFlightDataService();
+            //var mockInfoService = new MockControlInfoService();
+            
+            Service = new FlightStripService(vatSysInStripsConnector, vatSysInStripsConnector, vatSysInfoService);
         }
     }
 }

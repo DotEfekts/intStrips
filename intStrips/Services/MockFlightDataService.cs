@@ -7,11 +7,12 @@ namespace intStrips.Services
 {
     public class MockFlightDataService : IFlightDataReader, IFlightDataWriter
     {
-        public FlightDataModel[] GetAllFlightData()
+        public void RequestAllFlightData()
         {
-            return _mockFlights.ToArray();
+            FlightDataRefreshed?.Invoke(this, _mockFlights.ToArray());
         }
 
+        public event EventHandler<FlightDataModel[]> FlightDataRefreshed;
         public event EventHandler<FlightDataAddedArgs> FlightDataAdded;
         public event EventHandler<FlightDataChangedArgs> FlightDataChanged;
         public event EventHandler<FlightDataRemovedArgs> FlightDataRemoved;
@@ -171,6 +172,8 @@ namespace intStrips.Services
                 FlightStage = "AIRBORNE",
             },
         };
+
+        public void Dispose() {}
     }
 }
 
